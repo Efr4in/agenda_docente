@@ -1,7 +1,6 @@
-// api/registro.js
+// api/registro.js — WhatsApp Click-to-Chat
 const supabase = require('../lib/supabase');
 const { verifyToken } = require('../lib/auth');
-const fetch = require('node-fetch');
 
 module.exports = async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -14,7 +13,7 @@ module.exports = async (req, res) => {
     const {
       fecha, hora,
       estudiante_id, nombre_estudiante, grado_paralelo,
-      telefono_encargado, callmebot_apikey,
+      telefono_encargado,
       falto_clases, llego_tarde, no_hizo_tarea,
       indisciplina, bajo_rendimiento, perdio_material,
       observacion_adicional,
@@ -25,15 +24,14 @@ module.exports = async (req, res) => {
       return res.status(400).json({ error: 'Se requiere el estudiante.' });
     }
 
-    // Verificar que al menos una observación está marcada
     const tieneMarcas = falto_clases || llego_tarde || no_hizo_tarea ||
                         indisciplina || bajo_rendimiento || perdio_material ||
                         observacion_adicional?.trim();
     if (!tieneMarcas) {
-      return res.status(400).json({ error: 'Selecciona al menos una observación o escribe una nota.' });
+      return res.status(400).json({ error: 'Selecciona al menos una observacion o escribe una nota.' });
     }
 
-    // Guardar registro en la base de datos
+    // Guardar en Supabase
     const { data: registro, error: insertError } = await supabase
       .from('registros')
       .insert({
@@ -62,43 +60,27 @@ module.exports = async (req, res) => {
       return res.status(500).json({ error: 'Error al guardar el registro.' });
     }
 
-    // Enviar WhatsApp si está habilitado y hay número
-    let whatsappEnviado = false;
-    let whatsappError   = null;
-
+    // Construir URL WhatsApp Click-to-Chat
+    let whatsapp_url = null;
     if (enviar_whatsapp && telefono_encargado) {
-      const mensaje = buildWhatsAppMessage({
-        nombre_estudiante,
-        grado_paralelo,
-        fecha:      fecha || new Date().toISOString().split('T')[0],
-        hora:       hora  || new Date().toTimeString().slice(0,5),
-        docente:    `${decoded.nombre} ${decoded.apellido}`,
-        materia:    decoded.materia,
+      const mensaje = buildMensaje({
+        nombre_estudiante, grado_paralelo,
+        fecha:   fecha || new Date().toISOString().split('T')[0],
+        hora:    hora  || new Date().toTimeString().slice(0,5),
+        docente: `${decoded.nombre} ${decoded.apellido}`,
+        materia: decoded.materia,
         falto_clases, llego_tarde, no_hizo_tarea,
         indisciplina, bajo_rendimiento, perdio_material,
         observacion_adicional
       });
-
-      const waResult = await sendWhatsApp(telefono_encargado, callmebot_apikey, mensaje);
-      whatsappEnviado = waResult.success;
-      whatsappError   = waResult.error || null;
-
-      // Actualizar estado en BD
-      await supabase
-        .from('registros')
-        .update({
-          whatsapp_enviado:    whatsappEnviado,
-          whatsapp_enviado_at: whatsappEnviado ? new Date().toISOString() : null,
-          whatsapp_error:      whatsappError
-        })
-        .eq('id', registro.id);
+      const cleanPhone = telefono_encargado.replace(/[^\d]/g, '');
+      whatsapp_url = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(mensaje)}`;
     }
 
     return res.status(200).json({
-      success: true,
-      registro_id:      registro.id,
-      whatsapp_enviado: whatsappEnviado,
-      whatsapp_error:   whatsappError
+      success:     true,
+      registro_id: registro.id,
+      whatsapp_url
     });
 
   } catch (err) {
@@ -107,73 +89,34 @@ module.exports = async (req, res) => {
   }
 };
 
-// ── BUILDER DEL MENSAJE WHATSAPP ──
-function buildWhatsAppMessage(data) {
-  const fecha = new Date(data.fecha + 'T12:00:00').toLocaleDateString('es-BO', {
+function buildMensaje(d) {
+  const fecha = new Date(d.fecha + 'T12:00:00').toLocaleDateString('es-BO', {
     weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
   });
-
-  const observaciones = [];
-  if (data.falto_clases)     observaciones.push('❌ Faltó a clases');
-  if (data.llego_tarde)      observaciones.push('⏰ Llegó tarde');
-  if (data.no_hizo_tarea)    observaciones.push('📚 No hizo la tarea');
-  if (data.indisciplina)     observaciones.push('⚠️ Indisciplina');
-  if (data.bajo_rendimiento) observaciones.push('📉 Bajo rendimiento');
-  if (data.perdio_material)  observaciones.push('🎒 Perdió material');
+  const obs = [];
+  if (d.falto_clases)     obs.push('❌ Falto a clases');
+  if (d.llego_tarde)      obs.push('⏰ Llego tarde');
+  if (d.no_hizo_tarea)    obs.push('📚 No hizo la tarea');
+  if (d.indisciplina)     obs.push('⚠️ Indisciplina');
+  if (d.bajo_rendimiento) obs.push('📉 Bajo rendimiento');
+  if (d.perdio_material)  obs.push('🎒 Perdio material');
 
   let msg = `📋 *REPORTE ESCOLAR*\n`;
-  msg += `U.E.P. Boliviano Holandés\n`;
+  msg += `_U.E.P. Boliviano Holandes_\n`;
   msg += `━━━━━━━━━━━━━━━━━━━━\n`;
-  msg += `👤 *Estudiante:* ${data.nombre_estudiante}\n`;
-  msg += `🎓 *Grado:* ${data.grado_paralelo}\n`;
+  msg += `👤 *Estudiante:* ${d.nombre_estudiante}\n`;
+  msg += `🎓 *Grado:* ${d.grado_paralelo}\n`;
   msg += `📅 *Fecha:* ${fecha}\n`;
-  msg += `⏰ *Hora:* ${data.hora}\n`;
-  msg += `👩‍🏫 *Docente:* ${data.docente}\n`;
-  msg += `📚 *Materia:* ${data.materia}\n`;
+  msg += `⏰ *Hora:* ${d.hora}\n`;
+  msg += `👩‍🏫 *Docente:* ${d.docente}\n`;
+  msg += `📚 *Materia:* ${d.materia}\n`;
   msg += `━━━━━━━━━━━━━━━━━━━━\n`;
   msg += `📌 *OBSERVACIONES:*\n`;
-  if (observaciones.length > 0) {
-    observaciones.forEach(obs => { msg += `  ${obs}\n`; });
-  }
-  if (data.observacion_adicional?.trim()) {
-    msg += `\n📝 *Nota del docente:*\n  _${data.observacion_adicional.trim()}_\n`;
+  obs.forEach(o => { msg += `  ${o}\n`; });
+  if (d.observacion_adicional?.trim()) {
+    msg += `\n📝 *Nota:* _${d.observacion_adicional.trim()}_\n`;
   }
   msg += `━━━━━━━━━━━━━━━━━━━━\n`;
-  msg += `_Mensaje enviado automáticamente desde el Sistema de Agenda Escolar Digital._`;
-
+  msg += `_Enviado desde el Sistema de Agenda Escolar Digital._`;
   return msg;
-}
-
-// ── ENVÍO VÍA CALLMEBOT ──
-// El encargado debe registrarse en: https://www.callmebot.com/blog/free-api-whatsapp-messages/
-// Le llega una API KEY a su WhatsApp. Con esa key + su número, se pueden enviar mensajes.
-async function sendWhatsApp(phone, apikey, message) {
-  try {
-    // Limpiar número: solo dígitos con código de país (sin +, sin espacios)
-    const cleanPhone = phone.replace(/[^\d]/g, '');
-
-    // Si no hay apikey de Callmebot, no se puede enviar (usuario no registrado)
-    if (!apikey) {
-      return {
-        success: false,
-        error: 'El encargado no tiene API key de Callmebot registrada. ' +
-               'Debe registrarse en callmebot.com para recibir mensajes automáticos.'
-      };
-    }
-
-    const encodedMsg = encodeURIComponent(message);
-    const url = `https://api.callmebot.com/whatsapp.php?phone=${cleanPhone}&text=${encodedMsg}&apikey=${apikey}`;
-
-    const response = await fetch(url, { timeout: 8000 });
-    const text = await response.text();
-
-    // Callmebot responde con texto que incluye "Message queued" si fue exitoso
-    if (response.ok && (text.includes('queued') || text.includes('Message'))) {
-      return { success: true };
-    } else {
-      return { success: false, error: `Callmebot respondió: ${text.slice(0,100)}` };
-    }
-  } catch (err) {
-    return { success: false, error: `Error de red al enviar WhatsApp: ${err.message}` };
-  }
 }
