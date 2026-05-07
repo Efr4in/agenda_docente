@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="dark">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Administrador — Agenda Escolar</title>
+  <link rel="stylesheet" href="/css/main.css"/>
+  <style>
+    .bg-dots {
+      position: fixed; inset: 0; z-index: 0; pointer-events: none;
+      background-image: radial-gradient(circle, rgba(0,198,255,0.04) 1px, transparent 1px);
+      background-size: 32px 32px;
+    }
+    .admin-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.5rem;
+      margin-top: 1.5rem;
+    }
+    @media(max-width:900px) { .admin-grid { grid-template-columns: 1fr; } }
+
+    .panel-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      overflow: hidden;
+    }
+    .panel-card-header {
+      padding: 1rem 1.25rem;
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .panel-card-title { font-family: var(--font-head); font-weight: 700; font-size: 1rem; }
+    .panel-card-body { padding: 1.25rem; }
+
+    .docente-row {
+      display: flex; align-items: center; gap: .85rem;
+      padding: .75rem .5rem; border-bottom: 1px solid var(--border);
+      transition: var(--transition);
+    }
+    .docente-row:last-child { border-bottom: none; }
+    .docente-row:hover { background: var(--bg-card-hover); border-radius: var(--radius-sm); }
+    .docente-avatar {
+      width: 36px; height: 36px; border-radius: 50%;
+      background: linear-gradient(135deg, var(--accent-blue), var(--accent-cyan));
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 700; font-size: .78rem; color: #070b14; flex-shrink: 0;
+    }
+    .docente-info { flex: 1; }
+    .docente-name { font-weight: 600; font-size: .88rem; }
+    .docente-sub  { font-size: .76rem; color: var(--text-muted); }
+    .docente-actions { display: flex; gap: .4rem; }
+
+    .solicitud-row {
+      padding: .85rem;
+      background: rgba(255,209,102,0.05);
+      border: 1px solid rgba(255,209,102,0.2);
+      border-radius: var(--radius-sm);
+      margin-bottom: .6rem;
+    }
+    .solicitud-name { font-weight: 600; font-size: .9rem; }
+    .solicitud-email { font-size: .78rem; color: var(--text-muted); margin-bottom: .6rem; }
+    .solicitud-actions { display: flex; gap: .5rem; }
+
+    .notif-form textarea {
+      font-family: var(--font-body); font-size: .88rem;
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: var(--radius-sm); color: var(--text-primary);
+      padding: .75rem; width: 100%; resize: vertical; min-height: 90px;
+      outline: none; transition: var(--transition);
+    }
+    .notif-form textarea:focus { border-color: var(--accent-blue); }
+    .notif-form select {
+      font-family: var(--font-body); font-size: .88rem;
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: var(--radius-sm); color: var(--text-primary);
+      padding: .5rem .75rem; width: 100%; outline: none;
+      transition: var(--transition); margin-bottom: .75rem;
+    }
+    .notif-form label {
+      font-size: .78rem; font-weight: 600; color: var(--text-secondary);
+      text-transform: uppercase; letter-spacing: .06em;
+      display: block; margin-bottom: .4rem;
+    }
+    .notif-form .form-row { margin-bottom: .85rem; }
+  </style>
+</head>
+<body>
+<div class="bg-dots"></div>
+
+<!-- SIDEBAR -->
+<aside class="sidebar">
+  <div class="sidebar-logo">📋 <span>Agenda</span>Digital</div>
+  <nav class="sidebar-nav">
+    <a class="nav-link active" href="/admin/"><span class="nav-icon">🏠</span> Panel General</a>
+    <a class="nav-link" href="/admin/docentes.html"><span class="nav-icon">👩‍🏫</span> Docentes</a>
+    <a class="nav-link" href="/admin/estudiantes.html"><span class="nav-icon">👥</span> Estudiantes</a>
+  </nav>
+  <div class="sidebar-footer">
+    <div class="sidebar-user">
+      <div class="avatar">AD</div>
+      <div class="sidebar-user-info">
+        <div class="sidebar-user-name">Administrador</div>
+        <div class="sidebar-user-role">Acceso total</div>
+      </div>
+    </div>
+    <div style="display:flex;gap:.5rem;margin-top:.75rem">
+      <button class="btn btn-secondary btn-sm" style="flex:1" onclick="toggleTheme()">🌙 Tema</button>
+      <button class="btn btn-danger btn-sm" onclick="logout()">Salir</button>
+    </div>
+  </div>
+</aside>
+
+<div class="main-layout" style="position:relative;z-index:1">
+  <!-- TOPBAR -->
+  <div class="topbar">
+    <div class="topbar-title">🔐 Panel Administrador</div>
+    <div class="topbar-actions">
+      <div id="dateDisplay" style="font-size:.85rem;color:var(--text-secondary)"></div>
+    </div>
+  </div>
+
+  <!-- STATS -->
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-number" id="statDocentes">—</div>
+      <div class="stat-label">👩‍🏫 Docentes activos</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-number" id="statEstudiantes">—</div>
+      <div class="stat-label">👥 Estudiantes registrados</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-number" id="statRegistros">—</div>
+      <div class="stat-label">📋 Registros totales</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-number" id="statSolicitudes">—</div>
+      <div class="stat-label">⏳ Solicitudes pendientes</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-number" id="statWA">—</div>
+      <div class="stat-label">📱 WhatsApp enviados</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-number" id="statHoy">—</div>
+      <div class="stat-label">📅 Registros hoy</div>
+    </div>
+  </div>
+
+  <!-- GRIDS -->
+  <div class="admin-grid">
+
+    <!-- SOLICITUDES PENDIENTES -->
+    <div class="panel-card">
+      <div class="panel-card-header">
+        <div class="panel-card-title">⏳ Solicitudes de acceso</div>
+        <span class="badge badge-gold" id="solicBadge">0</span>
+      </div>
+      <div class="panel-card-body" id="solicList">
+        <div class="empty-state" style="padding:2rem">
+          <div class="empty-icon">✅</div>
+          <p>Sin solicitudes pendientes</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- DOCENTES RECIENTES -->
+    <div class="panel-card">
+      <div class="panel-card-header">
+        <div class="panel-card-title">👩‍🏫 Docentes activos</div>
+        <a href="/admin/docentes.html" class="btn btn-secondary btn-sm">Ver todos</a>
+      </div>
+      <div class="panel-card-body" id="docentesList">
+        <div class="empty-state" style="padding:2rem">
+          <div class="empty-icon">👩‍🏫</div>
+          <p>Cargando…</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ENVIAR NOTIFICACIÓN -->
+    <div class="panel-card">
+      <div class="panel-card-header">
+        <div class="panel-card-title">📢 Enviar notificación</div>
+      </div>
+      <div class="panel-card-body">
+        <div class="notif-form">
+          <div class="form-row">
+            <label>Destinatario</label>
+            <select id="notifDestinatario">
+              <option value="todos">📣 Todos los docentes</option>
+            </select>
+          </div>
+          <div class="form-row">
+            <label>Título</label>
+            <input type="text" id="notifTitulo" placeholder="ej: Reunión de coordinación"
+              style="font-family:var(--font-body);font-size:.88rem;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-primary);padding:.6rem .85rem;width:100%;outline:none;transition:var(--transition);margin-bottom:.75rem"/>
+          </div>
+          <div class="form-row">
+            <label>Mensaje</label>
+            <textarea id="notifMensaje" placeholder="Escribe el mensaje aquí…"></textarea>
+          </div>
+          <button class="btn btn-primary btn-full" onclick="enviarNotif()">📤 Enviar notificación</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- REGISTROS RECIENTES (global) -->
+    <div class="panel-card">
+      <div class="panel-card-header">
+        <div class="panel-card-title">📋 Últimos registros del sistema</div>
+      </div>
+      <div class="panel-card-body" id="globalRegistros">
+        <div class="empty-state" style="padding:2rem">
+          <div class="empty-icon">📋</div><p>Cargando…</p>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /admin-grid -->
+</div>
+
+<div class="toast-container" id="toastContainer"></div>
+
+<script>
+  const token = localStorage.getItem('token');
+  const user  = JSON.parse(localStorage.getItem('user')||'null');
+  if (!token || !user || user.role !== 'admin') window.location.href = '/';
+
+  let theme = localStorage.getItem('theme')||'dark';
+  document.documentElement.setAttribute('data-theme', theme);
+  function toggleTheme() {
+    theme = theme === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('theme', theme);
+  }
+
+  document.getElementById('dateDisplay').textContent =
+    new Date().toLocaleDateString('es',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+
+  async function loadAll() {
+    try {
+      const res = await fetch('/api/admin/stats', { headers:{ 'Authorization':`Bearer ${token}` }});
+      const d = await res.json();
+      if (d.stats) {
+        document.getElementById('statDocentes').textContent    = d.stats.docentes    ?? '—';
+        document.getElementById('statEstudiantes').textContent = d.stats.estudiantes ?? '—';
+        document.getElementById('statRegistros').textContent   = d.stats.registros   ?? '—';
+        document.getElementById('statSolicitudes').textContent = d.stats.solicitudes ?? '0';
+        document.getElementById('statWA').textContent          = d.stats.wa          ?? '—';
+        document.getElementById('statHoy').textContent         = d.stats.hoy         ?? '—';
+        document.getElementById('solicBadge').textContent      = d.stats.solicitudes ?? '0';
+      }
+      if (d.solicitudes?.length) {
+        document.getElementById('solicList').innerHTML = d.solicitudes.map(s => `
+          <div class="solicitud-row">
+            <div class="solicitud-name">${s.nombre} ${s.apellido}</div>
+            <div class="solicitud-email">${s.email} · ${s.materia}</div>
+            <div class="solicitud-actions">
+              <button class="btn btn-success btn-sm" onclick="aprobarDocente('${s.id}')">✅ Aprobar</button>
+              <button class="btn btn-danger btn-sm" onclick="rechazarDocente('${s.id}')">❌ Rechazar</button>
+            </div>
+          </div>`).join('');
+      }
+      if (d.docentes?.length) {
+        document.getElementById('docentesList').innerHTML = d.docentes.slice(0,6).map(doc => {
+          const initials = (doc.nombre[0]+(doc.apellido?.[0]||'')).toUpperCase();
+          return `<div class="docente-row">
+            <div class="docente-avatar">${initials}</div>
+            <div class="docente-info">
+              <div class="docente-name">${doc.nombre} ${doc.apellido}</div>
+              <div class="docente-sub">${doc.materia} · ${doc.grado_asignado||'—'}</div>
+            </div>
+            <span class="badge badge-green">Activo</span>
+          </div>`;
+        }).join('');
+
+        // Llenar select de notificaciones
+        const sel = document.getElementById('notifDestinatario');
+        d.docentes.forEach(doc => {
+          const opt = document.createElement('option');
+          opt.value = doc.id;
+          opt.textContent = `${doc.nombre} ${doc.apellido} (${doc.materia})`;
+          sel.appendChild(opt);
+        });
+      }
+      if (d.registros_recientes?.length) {
+        document.getElementById('globalRegistros').innerHTML = d.registros_recientes.slice(0,5).map(r => {
+          const tags = [];
+          if (r.falto_clases)  tags.push('Faltó');
+          if (r.llego_tarde)   tags.push('Tardanza');
+          if (r.indisciplina)  tags.push('Indisciplina');
+          const fecha = new Date(r.fecha+'T12:00:00').toLocaleDateString('es',{day:'2-digit',month:'short'});
+          return `<div style="padding:.7rem .5rem;border-bottom:1px solid var(--border);font-size:.85rem;display:flex;justify-content:space-between;align-items:center">
+            <div>
+              <strong>${r.nombre_estudiante}</strong>
+              <div style="font-size:.76rem;color:var(--text-muted)">${r.nombre_docente} · ${r.materia}</div>
+              <div style="display:flex;gap:.3rem;margin-top:.3rem">${tags.map(t=>`<span class="badge badge-red" style="font-size:.65rem">${t}</span>`).join('')}</div>
+            </div>
+            <span style="font-size:.75rem;color:var(--text-muted)">${fecha}</span>
+          </div>`;
+        }).join('');
+      }
+    } catch(e) { console.error(e); }
+  }
+
+  async function aprobarDocente(id) {
+    await fetch(`/api/admin/docentes/${id}/aprobar`, {
+      method:'POST', headers:{'Authorization':`Bearer ${token}`}
+    });
+    showToast('success','✅ Docente aprobado'); loadAll();
+  }
+  async function rechazarDocente(id) {
+    await fetch(`/api/admin/docentes/${id}`, {
+      method:'DELETE', headers:{'Authorization':`Bearer ${token}`}
+    });
+    showToast('info','Solicitud rechazada'); loadAll();
+  }
+
+  async function enviarNotif() {
+    const destinatario = document.getElementById('notifDestinatario').value;
+    const titulo   = document.getElementById('notifTitulo').value.trim();
+    const mensaje  = document.getElementById('notifMensaje').value.trim();
+    if (!titulo || !mensaje) { showToast('error','Completa título y mensaje.'); return; }
+    try {
+      const res = await fetch('/api/admin/notificaciones', {
+        method:'POST',
+        headers:{'Content-Type':'application/json','Authorization':`Bearer ${token}`},
+        body: JSON.stringify({ docente_id: destinatario === 'todos' ? null : destinatario, titulo, mensaje })
+      });
+      if (res.ok) {
+        showToast('success','📢 Notificación enviada correctamente');
+        document.getElementById('notifTitulo').value = '';
+        document.getElementById('notifMensaje').value = '';
+      }
+    } catch(e) { showToast('error','Error al enviar.'); }
+  }
+
+  function showToast(type, msg) {
+    const c = document.getElementById('toastContainer');
+    const t = document.createElement('div');
+    t.className = `toast toast-${type}`; t.textContent = msg;
+    c.appendChild(t);
+    setTimeout(()=>{t.style.opacity='0';t.style.transform='translateX(30px)';},3000);
+    setTimeout(()=>t.remove(),3300);
+  }
+  function logout() {
+    localStorage.removeItem('token'); localStorage.removeItem('user');
+    window.location.href = '/';
+  }
+
+  loadAll();
+</script>
+</body>
+</html>

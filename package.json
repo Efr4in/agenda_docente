@@ -1,0 +1,17 @@
+{
+  "name": "agenda-docente",
+  "version": "1.0.0",
+  "description": "Sistema de Agenda Escolar Digital con WhatsApp automático",
+  "scripts": {
+    "dev": "echo start"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.39.0",
+    "bcryptjs": "^2.4.3",
+    "jsonwebtoken": "^9.0.2",
+    "node-fetch": "^2.7.0"
+  },
+  "engines": {
+    "node": "18.x"
+  }
+}

@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Historial — Agenda Escolar</title>
+  <link rel="stylesheet" href="/css/main.css" />
+  <style>
+    .bg-dots {
+      position: fixed; inset: 0; z-index: 0; pointer-events: none;
+      background-image: radial-gradient(circle, rgba(0,198,255,0.04) 1px, transparent 1px);
+      background-size: 32px 32px;
+    }
+    .filter-bar {
+      display: flex; flex-wrap: wrap; gap: .75rem; align-items: center;
+      padding: 1rem 1.25rem;
+      background: var(--bg-glass); border: 1px solid var(--border);
+      border-radius: var(--radius-md); backdrop-filter: blur(20px);
+      margin-bottom: 1.5rem;
+    }
+    .filter-bar input, .filter-bar select {
+      font-family: var(--font-body); font-size: .88rem;
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: var(--radius-sm); color: var(--text-primary);
+      padding: .5rem .9rem; outline: none; transition: var(--transition);
+    }
+    .filter-bar input:focus, .filter-bar select:focus {
+      border-color: var(--accent-blue);
+    }
+    .filter-bar input { min-width: 200px; }
+    .results-count { font-size: .82rem; color: var(--text-muted); margin-left: auto; }
+
+    .historial-card {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: var(--radius-md); padding: 1.25rem;
+      margin-bottom: .75rem; transition: var(--transition);
+      display: flex; gap: 1rem; align-items: flex-start;
+    }
+    .historial-card:hover {
+      border-color: var(--border-accent);
+      background: var(--bg-card-hover);
+    }
+    .hc-avatar {
+      width: 46px; height: 46px; border-radius: 50%;
+      background: linear-gradient(135deg, var(--accent-blue), var(--accent-cyan));
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 800; font-size: .85rem; color: #070b14; flex-shrink: 0;
+    }
+    .hc-body { flex: 1; }
+    .hc-top { display: flex; align-items: center; justify-content: space-between; gap: .5rem; flex-wrap: wrap; }
+    .hc-name { font-weight: 700; font-size: .95rem; }
+    .hc-date { font-size: .78rem; color: var(--text-muted); }
+    .hc-meta { font-size: .8rem; color: var(--text-secondary); margin: .25rem 0; }
+    .hc-tags { display: flex; flex-wrap: wrap; gap: .35rem; margin-top: .5rem; }
+    .hc-tag {
+      padding: .15rem .55rem; border-radius: 999px;
+      font-size: .7rem; font-weight: 600;
+      background: rgba(255,107,107,0.12); color: var(--accent-red);
+    }
+    .hc-obs { font-size: .83rem; color: var(--text-secondary); margin-top: .4rem; font-style: italic; }
+    .hc-wa  { font-size: .78rem; color: var(--accent-green); margin-top: .35rem; }
+
+    .pagination {
+      display: flex; align-items: center; justify-content: center;
+      gap: .5rem; margin-top: 1.5rem;
+    }
+    .page-btn {
+      background: var(--bg-card); border: 1px solid var(--border);
+      color: var(--text-secondary); border-radius: var(--radius-sm);
+      padding: .45rem .85rem; cursor: pointer; font-size: .85rem;
+      transition: var(--transition);
+    }
+    .page-btn:hover, .page-btn.active {
+      border-color: var(--accent-blue); color: var(--accent-blue);
+      background: rgba(0,198,255,.08);
+    }
+
+    .danger-zone {
+      margin-top: 2rem; padding: 1.25rem;
+      background: rgba(255,107,107,.05);
+      border: 1px solid rgba(255,107,107,.2);
+      border-radius: var(--radius-md);
+    }
+    .danger-zone h4 { color: var(--accent-red); font-size: .95rem; margin-bottom: .5rem; }
+    .danger-zone p  { font-size: .82rem; margin-bottom: 1rem; }
+  </style>
+</head>
+<body>
+  <div class="bg-dots"></div>
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">📋 <span>Agenda</span>Digital</div>
+    <nav class="sidebar-nav">
+      <a class="nav-link" href="/docente/">
+        <span class="nav-icon">📅</span> Calendario
+      </a>
+      <a class="nav-link active" href="/docente/historial.html">
+        <span class="nav-icon">📋</span> Mi Historial
+      </a>
+      <a class="nav-link" href="/docente/" onclick="sessionStorage.setItem('openModal','1')">
+        <span class="nav-icon">✏️</span> Nuevo Registro
+      </a>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="sidebar-user">
+        <div class="avatar" id="sidebarAvatar">?</div>
+        <div class="sidebar-user-info">
+          <div class="sidebar-user-name" id="sidebarName">…</div>
+          <div class="sidebar-user-role" id="sidebarMateria">…</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:.5rem;margin-top:.75rem">
+        <button class="btn btn-secondary btn-sm" style="flex:1" onclick="toggleTheme()">🌙 Tema</button>
+        <button class="btn btn-danger btn-sm" onclick="logout()">Salir</button>
+      </div>
+    </div>
+  </aside>
+
+  <div class="main-layout" style="position:relative;z-index:1">
+    <div class="topbar">
+      <div class="topbar-title">📋 Mi Historial de Registros</div>
+      <div class="topbar-actions">
+        <a href="/docente/" class="btn btn-secondary btn-sm">← Volver al calendario</a>
+      </div>
+    </div>
+
+    <!-- FILTER BAR -->
+    <div class="filter-bar">
+      <input type="text" id="searchInput" placeholder="🔍 Buscar estudiante…" oninput="filterRecords()" />
+      <select id="filterObs" onchange="filterRecords()">
+        <option value="">Todas las observaciones</option>
+        <option value="falto_clases">Faltó a clases</option>
+        <option value="llego_tarde">Llegó tarde</option>
+        <option value="no_hizo_tarea">Sin tarea</option>
+        <option value="indisciplina">Indisciplina</option>
+        <option value="bajo_rendimiento">Bajo rendimiento</option>
+      </select>
+      <input type="date" id="filterDate" onchange="filterRecords()" />
+      <span class="results-count" id="resultsCount">Cargando…</span>
+    </div>
+
+    <!-- LIST -->
+    <div id="historialList"></div>
+
+    <!-- PAGINATION -->
+    <div class="pagination" id="pagination"></div>
+
+    <!-- DANGER ZONE -->
+    <div class="danger-zone">
+      <h4>⚠️ Zona de precaución</h4>
+      <p>Al borrar el historial, todos los registros de este periodo desaparecerán. Esta acción no puede deshacerse. Úsala solo al cierre del año escolar o cuando el estudiante ya no esté en tu clase.</p>
+      <button class="btn btn-danger btn-sm" onclick="confirmBorrar()">🗑️ Borrar historial completo</button>
+    </div>
+  </div>
+
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- CONFIRM MODAL -->
+  <div class="modal-overlay" id="confirmOverlay" onclick="if(event.target===this)this.classList.remove('open')">
+    <div class="modal" style="max-width:400px">
+      <div class="modal-header">
+        <h3>⚠️ Confirmar borrado</h3>
+        <button class="modal-close" onclick="document.getElementById('confirmOverlay').classList.remove('open')">✕</button>
+      </div>
+      <p style="margin-bottom:1.5rem">¿Estás seguro de que deseas borrar <strong>todo tu historial</strong>? Esta acción es <strong>irreversible</strong>.</p>
+      <div style="display:flex;gap:.75rem">
+        <button class="btn btn-secondary" style="flex:1" onclick="document.getElementById('confirmOverlay').classList.remove('open')">Cancelar</button>
+        <button class="btn btn-danger" style="flex:1" onclick="doDelete()">Sí, borrar todo</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const token = localStorage.getItem('token');
+    const user  = JSON.parse(localStorage.getItem('user') || 'null');
+    if (!token || !user) window.location.href = '/';
+
+    let theme = localStorage.getItem('theme') || 'dark';
+    document.documentElement.setAttribute('data-theme', theme);
+    function toggleTheme() {
+      theme = theme === 'dark' ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', theme);
+      localStorage.setItem('theme', theme);
+    }
+
+    // Sidebar
+    document.getElementById('sidebarAvatar').textContent = (user.nombre[0]+(user.apellido?.[0]||'')).toUpperCase();
+    document.getElementById('sidebarName').textContent = `${user.nombre} ${user.apellido}`;
+    document.getElementById('sidebarMateria').textContent = user.materia;
+
+    let allRecords = [];
+    let filtered   = [];
+    const PER_PAGE  = 15;
+    let currentPage = 1;
+
+    async function loadHistorial() {
+      try {
+        const res = await fetch('/api/historial?limit=200', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await res.json();
+        allRecords = data.registros || [];
+        filtered   = [...allRecords];
+        renderList();
+      } catch(e) { console.error(e); }
+    }
+
+    function filterRecords() {
+      const search = document.getElementById('searchInput').value.toLowerCase();
+      const obs    = document.getElementById('filterObs').value;
+      const date   = document.getElementById('filterDate').value;
+      filtered = allRecords.filter(r => {
+        const nameMatch = !search || r.nombre_estudiante?.toLowerCase().includes(search);
+        const obsMatch  = !obs    || r[obs];
+        const dateMatch = !date   || r.fecha === date;
+        return nameMatch && obsMatch && dateMatch;
+      });
+      currentPage = 1;
+      renderList();
+    }
+
+    function renderList() {
+      const list = document.getElementById('historialList');
+      document.getElementById('resultsCount').textContent = `${filtered.length} registros`;
+
+      const start = (currentPage-1)*PER_PAGE;
+      const page  = filtered.slice(start, start+PER_PAGE);
+
+      if (!page.length) {
+        list.innerHTML = `<div class="empty-state"><div class="empty-icon">📋</div><p>No hay registros con esos filtros.</p></div>`;
+        document.getElementById('pagination').innerHTML = '';
+        return;
+      }
+
+      list.innerHTML = page.map(r => {
+        const tags = [];
+        if (r.falto_clases)     tags.push('Faltó');
+        if (r.llego_tarde)      tags.push('Tardanza');
+        if (r.no_hizo_tarea)    tags.push('Sin tarea');
+        if (r.indisciplina)     tags.push('Indisciplina');
+        if (r.bajo_rendimiento) tags.push('Bajo rend.');
+        if (r.perdio_material)  tags.push('Mat. perdido');
+        const initials = r.nombre_estudiante?.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase() || '??';
+        const fecha = new Date(r.fecha+'T12:00:00').toLocaleDateString('es',{weekday:'short',day:'numeric',month:'short',year:'numeric'});
+        return `<div class="historial-card">
+          <div class="hc-avatar">${initials}</div>
+          <div class="hc-body">
+            <div class="hc-top">
+              <span class="hc-name">${r.nombre_estudiante}</span>
+              <span class="hc-date">${fecha} · ${r.hora?.slice(0,5)||''}</span>
+            </div>
+            <div class="hc-meta">${r.grado_paralelo||''}</div>
+            <div class="hc-tags">${tags.map(t=>`<span class="hc-tag">${t}</span>`).join('')}</div>
+            ${r.observacion_adicional ? `<div class="hc-obs">"${r.observacion_adicional}"</div>` : ''}
+            ${r.whatsapp_enviado ? '<div class="hc-wa">✅ WhatsApp enviado al encargado</div>' : ''}
+          </div>
+        </div>`;
+      }).join('');
+
+      // Pagination
+      const totalPages = Math.ceil(filtered.length / PER_PAGE);
+      const pag = document.getElementById('pagination');
+      if (totalPages <= 1) { pag.innerHTML = ''; return; }
+      pag.innerHTML = Array.from({length:totalPages},(_,i)=>
+        `<button class="page-btn${i+1===currentPage?' active':''}" onclick="goPage(${i+1})">${i+1}</button>`
+      ).join('');
+    }
+
+    function goPage(p) { currentPage = p; renderList(); window.scrollTo({top:0,behavior:'smooth'}); }
+
+    function confirmBorrar() {
+      document.getElementById('confirmOverlay').classList.add('open');
+    }
+    async function doDelete() {
+      document.getElementById('confirmOverlay').classList.remove('open');
+      try {
+        const res = await fetch('/api/historial', {
+          method: 'DELETE',
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (res.ok) {
+          allRecords = []; filtered = [];
+          renderList();
+          showToast('success', '🗑️ Historial borrado correctamente.');
+        }
+      } catch(e) { showToast('error', 'Error al borrar.'); }
+    }
+
+    function showToast(type, msg) {
+      const c = document.getElementById('toastContainer');
+      const t = document.createElement('div');
+      t.className = `toast toast-${type}`; t.textContent = msg;
+      c.appendChild(t);
+      setTimeout(()=>{t.style.opacity='0';t.style.transform='translateX(30px)';},3000);
+      setTimeout(()=>t.remove(),3300);
+    }
+
+    function logout() {
+      localStorage.removeItem('token'); localStorage.removeItem('user');
+      window.location.href = '/';
+    }
+
+    loadHistorial();
+  </script>
+</body>
+</html>

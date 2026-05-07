@@ -1,0 +1,776 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Agenda Escolar — Panel Docente</title>
+  <link rel="stylesheet" href="/css/main.css" />
+  <style>
+    /* ── DOCENTE DASHBOARD ── */
+    body { overflow-x: hidden; }
+
+    /* BG SUBTLE */
+    .bg-dots {
+      position: fixed; inset: 0; z-index: 0; pointer-events: none;
+      background-image: radial-gradient(circle, rgba(0,198,255,0.04) 1px, transparent 1px);
+      background-size: 32px 32px;
+    }
+    [data-theme="light"] .bg-dots {
+      background-image: radial-gradient(circle, rgba(0,150,200,0.07) 1px, transparent 1px);
+    }
+
+    .page-wrapper { position: relative; z-index: 1; }
+
+    /* ── CALENDAR ── */
+    .calendar-section { margin-bottom: 2rem; }
+
+    .calendar-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 1.5rem;
+    }
+    .calendar-nav {
+      display: flex; align-items: center; gap: 1rem;
+    }
+    .cal-nav-btn {
+      background: var(--bg-card); border: 1px solid var(--border);
+      color: var(--text-primary); border-radius: var(--radius-sm);
+      width: 36px; height: 36px; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1rem; transition: var(--transition);
+    }
+    .cal-nav-btn:hover { border-color: var(--border-accent); color: var(--accent-blue); }
+    .cal-month-title {
+      font-family: var(--font-head); font-size: 1.4rem; font-weight: 800;
+      min-width: 200px; text-align: center;
+    }
+    .cal-month-title span { color: var(--accent-blue); }
+
+    /* DAY NAMES ROW */
+    .calendar-days-header {
+      display: grid; grid-template-columns: repeat(7, 1fr);
+      gap: 6px; margin-bottom: 6px;
+    }
+    .day-name {
+      text-align: center; padding: 0.5rem;
+      font-size: 0.75rem; font-weight: 600;
+      text-transform: uppercase; letter-spacing: 0.07em;
+      color: var(--text-muted);
+    }
+
+    /* CALENDAR GRID */
+    .calendar-grid {
+      display: grid; grid-template-columns: repeat(7, 1fr);
+      gap: 6px;
+    }
+    .cal-day {
+      aspect-ratio: 1/1;
+      min-height: 80px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      transition: var(--transition);
+      display: flex; flex-direction: column;
+      padding: 0.6rem;
+      position: relative;
+      overflow: hidden;
+    }
+    .cal-day::before {
+      content: '';
+      position: absolute; inset: 0;
+      background: linear-gradient(135deg, transparent 60%, rgba(0,198,255,0.04));
+      opacity: 0; transition: opacity 0.3s;
+    }
+    .cal-day:hover::before { opacity: 1; }
+    .cal-day:hover {
+      border-color: var(--border-accent);
+      transform: scale(1.04) translateY(-2px);
+      box-shadow: var(--shadow-glow), var(--shadow);
+      z-index: 2;
+    }
+    .cal-day.today {
+      border-color: var(--accent-blue);
+      background: rgba(0,198,255,0.07);
+    }
+    .cal-day.today .day-number { color: var(--accent-blue); }
+    .cal-day.empty { background: transparent; border-color: transparent; cursor: default; pointer-events: none; }
+    .cal-day.empty:hover { transform: none; box-shadow: none; }
+    .cal-day.past { opacity: 0.5; }
+    .cal-day.past:hover { transform: none; }
+    .cal-day.has-records {
+      border-color: rgba(6,214,160,0.4);
+    }
+
+    .day-number {
+      font-family: var(--font-head); font-size: 1.1rem; font-weight: 700;
+      color: var(--text-primary); line-height: 1;
+    }
+    .day-records-count {
+      margin-top: auto;
+      display: flex; align-items: center; gap: 4px;
+      flex-wrap: wrap;
+    }
+    .record-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: var(--accent-green);
+      flex-shrink: 0;
+    }
+    .record-count-label {
+      font-size: 0.68rem; color: var(--accent-green);
+      font-weight: 600;
+    }
+    .day-today-label {
+      font-size: 0.62rem; font-weight: 700;
+      color: var(--accent-blue);
+      text-transform: uppercase; letter-spacing: 0.05em;
+      margin-top: 2px;
+    }
+
+    /* ── QUICK STATS ── */
+    .quick-stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      gap: 1rem;
+      margin-bottom: 2rem;
+    }
+    .qstat {
+      padding: 1rem 1.25rem;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      transition: var(--transition);
+      cursor: default;
+    }
+    .qstat:hover {
+      border-color: var(--border-accent);
+      transform: translateY(-3px);
+      box-shadow: var(--shadow-glow);
+    }
+    .qstat-icon { font-size: 1.4rem; margin-bottom: 0.5rem; }
+    .qstat-value {
+      font-family: var(--font-head); font-size: 1.8rem; font-weight: 800;
+      line-height: 1; color: var(--accent-blue);
+    }
+    .qstat-label { font-size: 0.78rem; color: var(--text-secondary); margin-top: 0.2rem; }
+
+    /* ── RECENT REGISTROS ── */
+    .recent-section { margin-top: 2rem; }
+    .section-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 1rem;
+    }
+    .section-title {
+      font-family: var(--font-head); font-size: 1.1rem; font-weight: 700;
+    }
+
+    .registro-item {
+      display: flex; align-items: flex-start; gap: 1rem;
+      padding: 1rem;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      margin-bottom: 0.5rem;
+      transition: var(--transition);
+    }
+    .registro-item:hover {
+      border-color: var(--border-accent);
+      background: var(--bg-card-hover);
+    }
+    .registro-avatar {
+      width: 40px; height: 40px; border-radius: 50%;
+      background: linear-gradient(135deg, var(--accent-blue), var(--accent-cyan));
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 700; font-size: 0.8rem; color: #070b14;
+      flex-shrink: 0;
+    }
+    .registro-info { flex: 1; }
+    .registro-name { font-weight: 600; font-size: 0.9rem; }
+    .registro-meta { font-size: 0.78rem; color: var(--text-secondary); margin-top: 0.2rem; }
+    .registro-tags { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.5rem; }
+    .registro-tag {
+      padding: 0.15rem 0.55rem;
+      border-radius: 999px;
+      font-size: 0.7rem; font-weight: 600;
+      background: rgba(255,107,107,0.12);
+      color: var(--accent-red);
+    }
+    .registro-time { font-size: 0.75rem; color: var(--text-muted); white-space: nowrap; }
+    .wa-sent { color: var(--accent-green); font-size: 0.78rem; margin-top: 0.3rem; }
+
+    /* ── TOPBAR NOTIF BELL ── */
+    .notif-btn {
+      position: relative;
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: var(--radius-sm); padding: 0.5rem;
+      cursor: pointer; font-size: 1.1rem; transition: var(--transition);
+    }
+    .notif-btn:hover { border-color: var(--border-accent); }
+    .notif-badge {
+      position: absolute; top: -4px; right: -4px;
+      background: var(--accent-red); color: #fff;
+      border-radius: 50%; width: 16px; height: 16px;
+      font-size: 0.6rem; font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+    }
+  </style>
+</head>
+<body>
+  <div class="bg-dots"></div>
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-logo">
+      📋 <span>Agenda</span>Digital
+    </div>
+    <nav class="sidebar-nav">
+      <a class="nav-link active" href="/docente/">
+        <span class="nav-icon">📅</span> Calendario
+      </a>
+      <a class="nav-link" href="/docente/historial.html">
+        <span class="nav-icon">📋</span> Mi Historial
+      </a>
+      <a class="nav-link" href="#" onclick="openRegistroModal(null)">
+        <span class="nav-icon">✏️</span> Nuevo Registro
+      </a>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="sidebar-user">
+        <div class="avatar" id="sidebarAvatar">MG</div>
+        <div class="sidebar-user-info">
+          <div class="sidebar-user-name" id="sidebarName">Cargando…</div>
+          <div class="sidebar-user-role" id="sidebarMateria">Materia</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:.5rem;margin-top:.75rem;">
+        <button class="btn btn-secondary btn-sm" style="flex:1" onclick="toggleTheme()">🌙 Tema</button>
+        <button class="btn btn-danger btn-sm" onclick="logout()">Salir</button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <div class="main-layout page-wrapper">
+
+    <!-- TOPBAR -->
+    <div class="topbar">
+      <div class="topbar-title" id="greetingTitle">Buenos días 👋</div>
+      <div class="topbar-actions">
+        <button class="notif-btn" id="notifBtn" onclick="checkNotifications()" title="Notificaciones">
+          🔔
+          <div class="notif-badge" id="notifBadge" style="display:none">0</div>
+        </button>
+        <button class="btn btn-primary btn-sm" onclick="openRegistroModal(null)">
+          ✏️ Nuevo Registro
+        </button>
+      </div>
+    </div>
+
+    <!-- QUICK STATS -->
+    <div class="quick-stats" id="quickStats">
+      <div class="qstat">
+        <div class="qstat-icon">📊</div>
+        <div class="qstat-value" id="statTotal">—</div>
+        <div class="qstat-label">Registros totales</div>
+      </div>
+      <div class="qstat">
+        <div class="qstat-icon">📅</div>
+        <div class="qstat-value" id="statHoy">—</div>
+        <div class="qstat-label">Registros hoy</div>
+      </div>
+      <div class="qstat">
+        <div class="qstat-icon">💬</div>
+        <div class="qstat-value" id="statWA">—</div>
+        <div class="qstat-label">WhatsApp enviados</div>
+      </div>
+      <div class="qstat">
+        <div class="qstat-icon">👥</div>
+        <div class="qstat-value" id="statEstudiantes">—</div>
+        <div class="qstat-label">Estudiantes</div>
+      </div>
+    </div>
+
+    <!-- CALENDAR -->
+    <div class="calendar-section">
+      <div class="calendar-header">
+        <div class="calendar-nav">
+          <button class="cal-nav-btn" onclick="changeMonth(-1)">‹</button>
+          <div class="cal-month-title" id="calTitle">…</div>
+          <button class="cal-nav-btn" onclick="changeMonth(1)">›</button>
+        </div>
+        <div style="font-size:0.82rem;color:var(--text-muted)">
+          Presiona cualquier día para registrar
+        </div>
+      </div>
+
+      <div class="calendar-days-header">
+        <div class="day-name">Dom</div>
+        <div class="day-name">Lun</div>
+        <div class="day-name">Mar</div>
+        <div class="day-name">Mié</div>
+        <div class="day-name">Jue</div>
+        <div class="day-name">Vie</div>
+        <div class="day-name">Sáb</div>
+      </div>
+
+      <div class="calendar-grid" id="calendarGrid">
+        <!-- Generado por JS -->
+      </div>
+    </div>
+
+    <!-- RECENT RECORDS -->
+    <div class="recent-section">
+      <div class="section-header">
+        <div class="section-title">Registros recientes</div>
+        <a href="/docente/historial.html" class="btn btn-secondary btn-sm">Ver todos →</a>
+      </div>
+      <div id="recentList">
+        <div class="empty-state">
+          <div class="empty-icon">📋</div>
+          <p>Cargando registros…</p>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /main-layout -->
+
+  <!-- TOAST -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- ── REGISTRO MODAL ── -->
+  <div class="modal-overlay" id="registroOverlay" onclick="closeOnOverlay(event)">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 id="modalTitle">📝 Nuevo Registro</h3>
+        <button class="modal-close" onclick="closeRegistroModal()">✕</button>
+      </div>
+
+      <!-- DATE INFO -->
+      <div style="display:flex;gap:.75rem;margin-bottom:1.25rem;">
+        <div style="flex:1;padding:.75rem;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-sm);">
+          <div style="font-size:.75rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:.2rem">Fecha</div>
+          <div style="font-weight:600;font-size:.9rem" id="modalFecha">—</div>
+        </div>
+        <div style="flex:1;padding:.75rem;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-sm);">
+          <div style="font-size:.75rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:.2rem">Hora (auto)</div>
+          <div style="font-weight:600;font-size:.9rem" id="modalHora">—</div>
+        </div>
+        <div style="flex:1;padding:.75rem;background:rgba(0,198,255,0.07);border:1px solid var(--border-accent);border-radius:var(--radius-sm);">
+          <div style="font-size:.75rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:.2rem">Docente</div>
+          <div style="font-weight:600;font-size:.9rem;color:var(--accent-blue)" id="modalDocente">—</div>
+        </div>
+      </div>
+
+      <!-- STUDENT CODE INPUT -->
+      <div class="form-group">
+        <label>Código del Estudiante (4 dígitos)</label>
+        <input type="text" id="codigoInput" maxlength="4" placeholder="ej: 0042"
+          oninput="onCodigoInput(this.value)" autocomplete="off" />
+      </div>
+
+      <!-- STUDENT PREVIEW (autodetect) -->
+      <div class="student-preview" id="studentPreview">
+        <div class="student-code-badge" id="previewInitials">??</div>
+        <div class="student-preview-info">
+          <div class="student-name" id="previewName">—</div>
+          <div class="student-meta" id="previewMeta">—</div>
+        </div>
+      </div>
+
+      <!-- CHECKBOXES -->
+      <div style="font-size:.82rem;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.06em;margin-bottom:.75rem">
+        Tipo de observación
+      </div>
+      <div class="checkbox-grid">
+        <label class="checkbox-item" onclick="toggleCheck(this)">
+          <input type="checkbox" name="obs" value="falto_clases" />
+          <div class="check-box"></div>
+          <span class="check-label">❌ Faltó a clases</span>
+        </label>
+        <label class="checkbox-item" onclick="toggleCheck(this)">
+          <input type="checkbox" name="obs" value="llego_tarde" />
+          <div class="check-box"></div>
+          <span class="check-label">⏰ Llegó tarde</span>
+        </label>
+        <label class="checkbox-item" onclick="toggleCheck(this)">
+          <input type="checkbox" name="obs" value="no_hizo_tarea" />
+          <div class="check-box"></div>
+          <span class="check-label">📚 No hizo la tarea</span>
+        </label>
+        <label class="checkbox-item" onclick="toggleCheck(this)">
+          <input type="checkbox" name="obs" value="indisciplina" />
+          <div class="check-box"></div>
+          <span class="check-label">⚠️ Indisciplina</span>
+        </label>
+        <label class="checkbox-item" onclick="toggleCheck(this)">
+          <input type="checkbox" name="obs" value="bajo_rendimiento" />
+          <div class="check-box"></div>
+          <span class="check-label">📉 Bajo rendimiento</span>
+        </label>
+        <label class="checkbox-item" onclick="toggleCheck(this)">
+          <input type="checkbox" name="obs" value="perdio_material" />
+          <div class="check-box"></div>
+          <span class="check-label">🎒 Perdió material</span>
+        </label>
+      </div>
+
+      <!-- OBS LIBRE -->
+      <div class="form-group" style="margin-top:.75rem">
+        <label>Observación adicional (opcional)</label>
+        <textarea id="obsAdicional" placeholder="Detalles adicionales del docente…"></textarea>
+      </div>
+
+      <!-- WHATSAPP OPTION -->
+      <div style="display:flex;align-items:center;gap:.75rem;padding:.9rem;background:rgba(6,214,160,0.06);border:1px solid rgba(6,214,160,0.2);border-radius:var(--radius-sm);margin-bottom:1.25rem">
+        <span style="font-size:1.4rem">📱</span>
+        <div style="flex:1">
+          <div style="font-size:.88rem;font-weight:600">Enviar al encargado vía WhatsApp</div>
+          <div style="font-size:.77rem;color:var(--text-muted)" id="waPhonePreview">Número: —</div>
+        </div>
+        <label class="checkbox-item" style="margin:0;padding:.5rem;border:none;background:transparent" onclick="toggleCheck(this)">
+          <input type="checkbox" id="sendWA" checked />
+          <div class="check-box"></div>
+        </label>
+      </div>
+
+      <!-- ACTION BUTTONS -->
+      <div id="modalError" style="display:none;color:var(--accent-red);font-size:.83rem;margin-bottom:.75rem;background:rgba(255,107,107,0.08);border:1px solid rgba(255,107,107,0.2);border-radius:var(--radius-sm);padding:.6rem .9rem"></div>
+
+      <div style="display:flex;gap:.75rem">
+        <button class="btn btn-secondary" style="flex:1" onclick="closeRegistroModal()">Cancelar</button>
+        <button class="btn btn-success" style="flex:2" id="enviarBtn" onclick="enviarRegistro()">
+          📤 Guardar y Enviar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ── AUTH GUARD ──
+    const token = localStorage.getItem('token');
+    const user  = JSON.parse(localStorage.getItem('user') || 'null');
+    if (!token || !user || user.role !== 'docente') {
+      window.location.href = '/';
+    }
+
+    // ── THEME ──
+    let theme = localStorage.getItem('theme') || 'dark';
+    document.documentElement.setAttribute('data-theme', theme);
+    function toggleTheme() {
+      theme = theme === 'dark' ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', theme);
+      localStorage.setItem('theme', theme);
+    }
+
+    // ── INIT ──
+    document.addEventListener('DOMContentLoaded', async () => {
+      // Saludo
+      const hour = new Date().getHours();
+      const greet = hour < 12 ? 'Buenos días' : hour < 18 ? 'Buenas tardes' : 'Buenas noches';
+      document.getElementById('greetingTitle').textContent = `${greet}, ${user.nombre} 👋`;
+
+      // Sidebar
+      const initials = (user.nombre[0] + (user.apellido?.[0] || '')).toUpperCase();
+      document.getElementById('sidebarAvatar').textContent = initials;
+      document.getElementById('sidebarName').textContent = `${user.nombre} ${user.apellido}`;
+      document.getElementById('sidebarMateria').textContent = user.materia;
+
+      await loadStats();
+      await loadRecentRecords();
+      await loadCalendarRecords();
+      renderCalendar();
+      checkNotifications();
+    });
+
+    // ── STATS ──
+    async function loadStats() {
+      try {
+        const res = await fetch('/api/historial?stats=1', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await res.json();
+        if (data.stats) {
+          document.getElementById('statTotal').textContent = data.stats.total ?? '0';
+          document.getElementById('statHoy').textContent   = data.stats.hoy ?? '0';
+          document.getElementById('statWA').textContent    = data.stats.wa_enviados ?? '0';
+          document.getElementById('statEstudiantes').textContent = data.stats.estudiantes_unicos ?? '0';
+        }
+      } catch(e) { console.error(e); }
+    }
+
+    // ── RECENT RECORDS ──
+    async function loadRecentRecords() {
+      try {
+        const res = await fetch('/api/historial?limit=5', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await res.json();
+        const list = document.getElementById('recentList');
+        if (!data.registros || data.registros.length === 0) {
+          list.innerHTML = `<div class="empty-state"><div class="empty-icon">📋</div><p>Sin registros aún. ¡Empieza presionando una fecha del calendario!</p></div>`;
+          return;
+        }
+        list.innerHTML = data.registros.map(r => {
+          const tags = [];
+          if (r.falto_clases)     tags.push('Faltó');
+          if (r.llego_tarde)      tags.push('Tardanza');
+          if (r.no_hizo_tarea)    tags.push('Sin tarea');
+          if (r.indisciplina)     tags.push('Indisciplina');
+          if (r.bajo_rendimiento) tags.push('Bajo rend.');
+          if (r.perdio_material)  tags.push('Mat. perdido');
+          const initials = r.nombre_estudiante?.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase() || '??';
+          const fechaFmt = new Date(r.fecha + 'T12:00:00').toLocaleDateString('es', {day:'2-digit',month:'short'});
+          return `<div class="registro-item">
+            <div class="registro-avatar">${initials}</div>
+            <div class="registro-info">
+              <div class="registro-name">${r.nombre_estudiante || '—'}</div>
+              <div class="registro-meta">${r.materia} · ${fechaFmt} ${r.hora?.slice(0,5) || ''}</div>
+              <div class="registro-tags">${tags.map(t=>`<span class="registro-tag">${t}</span>`).join('')}</div>
+              ${r.whatsapp_enviado ? '<div class="wa-sent">✅ WhatsApp enviado</div>' : ''}
+            </div>
+            <div class="registro-time">${r.hora?.slice(0,5)||''}</div>
+          </div>`;
+        }).join('');
+      } catch(e) { console.error(e); }
+    }
+
+    // ── CALENDAR ──
+    let calYear, calMonth;
+    let calRecords = {}; // { 'YYYY-MM-DD': count }
+
+    async function loadCalendarRecords() {
+      const now = new Date();
+      calYear  = calYear  || now.getFullYear();
+      calMonth = calMonth !== undefined ? calMonth : now.getMonth();
+      try {
+        const res = await fetch(`/api/historial?year=${calYear}&month=${calMonth+1}&summary=1`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await res.json();
+        calRecords = {};
+        (data.summary || []).forEach(s => { calRecords[s.fecha] = s.count; });
+      } catch(e) { console.error(e); }
+    }
+
+    function renderCalendar() {
+      const now    = new Date();
+      const year   = calYear  || now.getFullYear();
+      const month  = calMonth !== undefined ? calMonth : now.getMonth();
+
+      const MONTHS = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+      document.getElementById('calTitle').innerHTML = `${MONTHS[month]} <span>${year}</span>`;
+
+      const firstDay = new Date(year, month, 1).getDay();
+      const daysInMonth = new Date(year, month+1, 0).getDate();
+      const todayStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+
+      const grid = document.getElementById('calendarGrid');
+      grid.innerHTML = '';
+
+      // Empty cells before first day
+      for (let i = 0; i < firstDay; i++) {
+        const empty = document.createElement('div');
+        empty.className = 'cal-day empty';
+        grid.appendChild(empty);
+      }
+
+      for (let d = 1; d <= daysInMonth; d++) {
+        const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+        const isToday = dateStr === todayStr;
+        const isPast  = new Date(year, month, d) < new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const count   = calRecords[dateStr] || 0;
+
+        const cell = document.createElement('div');
+        cell.className = `cal-day${isToday?' today':''}${isPast&&!isToday?' past':''}${count>0?' has-records':''}`;
+        cell.onclick = () => openRegistroModal(dateStr);
+
+        cell.innerHTML = `
+          <div class="day-number">${d}</div>
+          ${isToday ? '<div class="day-today-label">Hoy</div>' : ''}
+          ${count > 0 ? `<div class="day-records-count">${Array(Math.min(count,4)).fill('<div class="record-dot"></div>').join('')}<span class="record-count-label">${count}</span></div>` : ''}
+        `;
+        grid.appendChild(cell);
+      }
+    }
+
+    async function changeMonth(dir) {
+      const now = new Date();
+      calYear  = calYear  || now.getFullYear();
+      calMonth = calMonth !== undefined ? calMonth : now.getMonth();
+      calMonth += dir;
+      if (calMonth < 0)  { calMonth = 11; calYear--; }
+      if (calMonth > 11) { calMonth = 0;  calYear++; }
+      await loadCalendarRecords();
+      renderCalendar();
+    }
+
+    // ── REGISTRO MODAL ──
+    let selectedDate = null;
+    let currentStudent = null;
+    let codigoDebounce;
+
+    function openRegistroModal(dateStr) {
+      selectedDate = dateStr || getTodayStr();
+      const d = new Date(selectedDate + 'T12:00:00');
+      document.getElementById('modalFecha').textContent = d.toLocaleDateString('es', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
+      updateHora();
+      document.getElementById('modalDocente').textContent = `${user.nombre} ${user.apellido} · ${user.materia}`;
+      document.getElementById('codigoInput').value = '';
+      document.getElementById('studentPreview').classList.remove('visible');
+      document.getElementById('obsAdicional').value = '';
+      document.getElementById('modalError').style.display = 'none';
+      document.querySelectorAll('.checkbox-item').forEach(el => {
+        el.classList.remove('checked');
+        const cb = el.querySelector('input[type="checkbox"]');
+        if (cb) cb.checked = false;
+      });
+      document.getElementById('sendWA').checked = true;
+      currentStudent = null;
+      document.getElementById('registroOverlay').classList.add('open');
+      setTimeout(() => document.getElementById('codigoInput').focus(), 300);
+    }
+
+    function closeRegistroModal() {
+      document.getElementById('registroOverlay').classList.remove('open');
+    }
+    function closeOnOverlay(e) {
+      if (e.target === document.getElementById('registroOverlay')) closeRegistroModal();
+    }
+
+    function updateHora() {
+      document.getElementById('modalHora').textContent = new Date().toLocaleTimeString('es', { hour:'2-digit', minute:'2-digit' });
+    }
+    setInterval(updateHora, 10000);
+
+    function getTodayStr() {
+      const n = new Date();
+      return `${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}-${String(n.getDate()).padStart(2,'0')}`;
+    }
+
+    async function onCodigoInput(val) {
+      clearTimeout(codigoDebounce);
+      const preview = document.getElementById('studentPreview');
+      if (val.length < 4) { preview.classList.remove('visible'); currentStudent = null; return; }
+      codigoDebounce = setTimeout(async () => {
+        try {
+          const res = await fetch(`/api/estudiantes?codigo=${val}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          const data = await res.json();
+          if (data.estudiante) {
+            currentStudent = data.estudiante;
+            const initials = (data.estudiante.nombre[0] + data.estudiante.apellido[0]).toUpperCase();
+            document.getElementById('previewInitials').textContent = initials;
+            document.getElementById('previewName').textContent = `${data.estudiante.nombre} ${data.estudiante.apellido}`;
+            document.getElementById('previewMeta').textContent = `${data.estudiante.grado}° "${data.estudiante.paralelo}" · Enc: ${data.estudiante.nombre_encargado}`;
+            document.getElementById('waPhonePreview').textContent = `Número: ${data.estudiante.telefono_encargado}`;
+            preview.classList.add('visible');
+          } else {
+            preview.classList.remove('visible');
+            currentStudent = null;
+            showToast('error', `Código "${val}" no encontrado`);
+          }
+        } catch(e) { console.error(e); }
+      }, 500);
+    }
+
+    function toggleCheck(label) {
+      setTimeout(() => {
+        const cb = label.querySelector('input[type="checkbox"]');
+        if (cb) label.classList.toggle('checked', cb.checked);
+      }, 0);
+    }
+
+    async function enviarRegistro() {
+      const err = document.getElementById('modalError');
+      err.style.display = 'none';
+
+      if (!currentStudent) {
+        err.textContent = '⚠️ Ingresa un código de estudiante válido (4 dígitos).';
+        err.style.display = 'block'; return;
+      }
+
+      const checkboxes = document.querySelectorAll('.checkbox-item input[name="obs"]');
+      const observations = {};
+      checkboxes.forEach(cb => { observations[cb.value] = cb.checked; });
+
+      const payload = {
+        fecha:               selectedDate,
+        hora:                new Date().toTimeString().slice(0,8),
+        estudiante_id:       currentStudent.id,
+        nombre_estudiante:   `${currentStudent.nombre} ${currentStudent.apellido}`,
+        grado_paralelo:      `${currentStudent.grado}° "${currentStudent.paralelo}"`,
+        telefono_encargado:  currentStudent.telefono_encargado,
+        callmebot_apikey:    currentStudent.callmebot_apikey,
+        ...observations,
+        observacion_adicional: document.getElementById('obsAdicional').value,
+        enviar_whatsapp:     document.getElementById('sendWA').checked
+      };
+
+      const btn = document.getElementById('enviarBtn');
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner"></span> Enviando…';
+
+      try {
+        const res = await fetch('/api/registro', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+
+        if (!res.ok) {
+          err.textContent = '⚠️ ' + (data.error || 'Error al guardar el registro.');
+          err.style.display = 'block';
+          return;
+        }
+
+        closeRegistroModal();
+        showToast('success', `✅ Registro guardado${data.whatsapp_enviado ? ' y WhatsApp enviado 📱' : ''}`);
+        await loadStats();
+        await loadRecentRecords();
+        await loadCalendarRecords();
+        renderCalendar();
+
+      } catch(e) {
+        err.textContent = '⚠️ Error de conexión.';
+        err.style.display = 'block';
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = '📤 Guardar y Enviar';
+      }
+    }
+
+    // ── NOTIFICATIONS ──
+    async function checkNotifications() {
+      try {
+        const res = await fetch('/api/notificaciones', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await res.json();
+        const badge = document.getElementById('notifBadge');
+        const count = (data.notificaciones || []).filter(n => !n.leida).length;
+        badge.style.display = count > 0 ? 'flex' : 'none';
+        badge.textContent = count;
+      } catch(e) {}
+    }
+
+    // ── TOAST ──
+    function showToast(type, msg) {
+      const container = document.getElementById('toastContainer');
+      const toast = document.createElement('div');
+      toast.className = `toast toast-${type}`;
+      toast.textContent = msg;
+      container.appendChild(toast);
+      setTimeout(() => { toast.style.opacity = '0'; toast.style.transform = 'translateX(30px)'; }, 3000);
+      setTimeout(() => toast.remove(), 3300);
+    }
+
+    // ── LOGOUT ──
+    function logout() {
+      localStorage.removeItem('token'); localStorage.removeItem('user');
+      window.location.href = '/';
+    }
+  </script>
+</body>
+</html>

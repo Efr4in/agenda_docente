@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Agenda Escolar Digital — Iniciar Sesión</title>
+  <link rel="stylesheet" href="/css/main.css" />
+  <style>
+    /* ── LOGIN PAGE EXCLUSIVE ── */
+    body { overflow: hidden; }
+
+    /* PARALLAX CANVAS */
+    #canvas-bg {
+      position: fixed; inset: 0;
+      z-index: 0; pointer-events: none;
+    }
+
+    /* FLOATING GLOWS */
+    .glow-orb {
+      position: fixed; border-radius: 50%;
+      filter: blur(80px); pointer-events: none; z-index: 0;
+      animation: float 8s ease-in-out infinite;
+    }
+    .glow-orb-1 {
+      width: 500px; height: 500px;
+      background: radial-gradient(circle, rgba(0,198,255,0.12) 0%, transparent 70%);
+      top: -150px; left: -100px;
+      animation-delay: 0s;
+    }
+    .glow-orb-2 {
+      width: 400px; height: 400px;
+      background: radial-gradient(circle, rgba(0,255,204,0.08) 0%, transparent 70%);
+      bottom: -100px; right: -80px;
+      animation-delay: -3s;
+    }
+    .glow-orb-3 {
+      width: 300px; height: 300px;
+      background: radial-gradient(circle, rgba(255,209,102,0.06) 0%, transparent 70%);
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      animation-delay: -6s;
+    }
+
+    /* GRID LINES BACKGROUND */
+    .grid-bg {
+      position: fixed; inset: 0; z-index: 0;
+      background-image:
+        linear-gradient(rgba(0,198,255,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,198,255,0.03) 1px, transparent 1px);
+      background-size: 60px 60px;
+      pointer-events: none;
+    }
+    [data-theme="light"] .grid-bg {
+      background-image:
+        linear-gradient(rgba(0,150,200,0.05) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,150,200,0.05) 1px, transparent 1px);
+    }
+
+    /* LOGIN WRAPPER */
+    .login-wrapper {
+      position: relative; z-index: 10;
+      min-height: 100vh;
+      display: flex; align-items: center; justify-content: center;
+      padding: 2rem;
+    }
+
+    /* LOGIN CARD */
+    .login-card {
+      width: 100%; max-width: 420px;
+      background: var(--bg-glass);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 2.5rem;
+      backdrop-filter: blur(40px);
+      -webkit-backdrop-filter: blur(40px);
+      box-shadow: var(--shadow), var(--shadow-glow);
+      animation: fadeSlideIn 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    .login-brand {
+      text-align: center; margin-bottom: 2rem;
+    }
+    .login-brand .brand-icon {
+      width: 64px; height: 64px;
+      margin: 0 auto 1rem;
+      background: linear-gradient(135deg, var(--accent-blue), var(--accent-cyan));
+      border-radius: var(--radius-md);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.8rem;
+      box-shadow: 0 8px 32px rgba(0,198,255,0.3);
+      animation: pulse-glow 3s ease-in-out infinite;
+    }
+    .login-brand h1 {
+      font-size: 1.5rem; font-weight: 800;
+      color: var(--text-primary); margin-bottom: 0.3rem;
+    }
+    .login-brand h1 span { color: var(--accent-blue); }
+    .login-brand p { font-size: 0.85rem; color: var(--text-muted); }
+
+    /* ROLE SELECTOR */
+    .role-selector {
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 0.75rem; margin-bottom: 1.75rem;
+    }
+    .role-btn {
+      padding: 0.85rem;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      background: var(--bg-card);
+      color: var(--text-secondary);
+      cursor: pointer; font-family: var(--font-body);
+      font-size: 0.88rem; font-weight: 500;
+      transition: var(--transition);
+      display: flex; flex-direction: column;
+      align-items: center; gap: 0.4rem;
+      text-align: center;
+    }
+    .role-btn .role-icon { font-size: 1.4rem; }
+    .role-btn:hover {
+      border-color: var(--border-accent);
+      color: var(--text-primary);
+    }
+    .role-btn.active {
+      border-color: var(--accent-blue);
+      background: rgba(0,198,255,0.08);
+      color: var(--accent-blue);
+      box-shadow: 0 0 20px rgba(0,198,255,0.15);
+    }
+
+    /* ERROR MESSAGE */
+    .error-msg {
+      display: none;
+      color: var(--accent-red); font-size: 0.83rem;
+      background: rgba(255,107,107,0.08);
+      border: 1px solid rgba(255,107,107,0.2);
+      border-radius: var(--radius-sm);
+      padding: 0.6rem 0.9rem;
+      margin-bottom: 1rem;
+      animation: fadeSlideIn 0.3s ease;
+    }
+    .error-msg.visible { display: block; }
+
+    /* THEME TOGGLE TOP RIGHT */
+    .theme-toggle-wrap {
+      position: fixed; top: 1.5rem; right: 1.5rem; z-index: 100;
+      display: flex; align-items: center; gap: 0.6rem;
+    }
+    .theme-toggle-label { font-size: 0.78rem; color: var(--text-muted); }
+
+    /* LOGIN FOOTER */
+    .login-footer {
+      text-align: center; margin-top: 1.5rem;
+      font-size: 0.78rem; color: var(--text-muted);
+    }
+
+    /* LOADING OVERLAY */
+    #loading-overlay {
+      display: none;
+      position: fixed; inset: 0;
+      background: var(--bg-primary);
+      z-index: 9999;
+      align-items: center; justify-content: center;
+      flex-direction: column; gap: 1rem;
+    }
+    #loading-overlay.show { display: flex; }
+    .loading-spinner-large {
+      width: 48px; height: 48px;
+      border: 3px solid rgba(0,198,255,0.2);
+      border-top-color: var(--accent-blue);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+  </style>
+</head>
+<body>
+  <!-- LOADING -->
+  <div id="loading-overlay">
+    <div class="loading-spinner-large"></div>
+    <p style="color:var(--text-secondary);font-size:0.9rem">Verificando sesión…</p>
+  </div>
+
+  <!-- BACKGROUNDS -->
+  <canvas id="canvas-bg"></canvas>
+  <div class="grid-bg"></div>
+  <div class="glow-orb glow-orb-1"></div>
+  <div class="glow-orb glow-orb-2"></div>
+  <div class="glow-orb glow-orb-3"></div>
+
+  <!-- THEME TOGGLE -->
+  <div class="theme-toggle-wrap">
+    <span class="theme-toggle-label" id="theme-label">🌙 Oscuro</span>
+    <div class="theme-toggle" id="themeBtn" title="Cambiar tema">
+      <div class="toggle-thumb">🌙</div>
+    </div>
+  </div>
+
+  <!-- MAIN -->
+  <div class="login-wrapper">
+    <div class="login-card">
+      <div class="login-brand">
+        <div class="brand-icon">📋</div>
+        <h1>Agenda <span>Digital</span></h1>
+        <p>U.E.P. Boliviano Holandés</p>
+      </div>
+
+      <!-- ROLE SELECTOR -->
+      <div class="role-selector">
+        <button class="role-btn active" data-role="docente" onclick="selectRole('docente', this)">
+          <span class="role-icon">👩‍🏫</span>
+          Docente
+        </button>
+        <button class="role-btn" data-role="admin" onclick="selectRole('admin', this)">
+          <span class="role-icon">🔐</span>
+          Administrador
+        </button>
+      </div>
+
+      <!-- ERROR -->
+      <div class="error-msg" id="errorMsg"></div>
+
+      <!-- FORM -->
+      <div class="form-group">
+        <label>Correo electrónico</label>
+        <input type="email" id="emailInput" placeholder="tu@correo.com" autocomplete="email" />
+      </div>
+      <div class="form-group">
+        <label>Contraseña</label>
+        <input type="password" id="passInput" placeholder="••••••••" autocomplete="current-password" />
+      </div>
+
+      <button class="btn btn-primary btn-full" id="loginBtn" onclick="handleLogin()">
+        <span id="loginBtnText">Iniciar Sesión</span>
+      </button>
+
+      <div class="login-footer">
+        ¿No tienes acceso? Solicítalo al administrador.
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ── THEME ──
+    let theme = localStorage.getItem('theme') || 'dark';
+    applyTheme(theme);
+
+    function applyTheme(t) {
+      document.documentElement.setAttribute('data-theme', t);
+      const btn = document.getElementById('themeBtn');
+      const label = document.getElementById('theme-label');
+      const thumb = btn.querySelector('.toggle-thumb');
+      if (t === 'dark') {
+        thumb.textContent = '🌙';
+        label.textContent = '🌙 Oscuro';
+      } else {
+        thumb.textContent = '☀️';
+        label.textContent = '☀️ Claro';
+      }
+      localStorage.setItem('theme', t);
+    }
+
+    document.getElementById('themeBtn').addEventListener('click', () => {
+      theme = theme === 'dark' ? 'light' : 'dark';
+      applyTheme(theme);
+    });
+
+    // ── ROLE SELECTION ──
+    let selectedRole = 'docente';
+    function selectRole(role, el) {
+      selectedRole = role;
+      document.querySelectorAll('.role-btn').forEach(b => b.classList.remove('active'));
+      el.classList.add('active');
+    }
+
+    // ── LOGIN ──
+    async function handleLogin() {
+      const email = document.getElementById('emailInput').value.trim();
+      const pass  = document.getElementById('passInput').value;
+      const errEl = document.getElementById('errorMsg');
+      const btn   = document.getElementById('loginBtn');
+      const btnTxt = document.getElementById('loginBtnText');
+
+      errEl.classList.remove('visible');
+
+      if (!email || !pass) {
+        showError('Completa todos los campos.');
+        return;
+      }
+
+      btn.disabled = true;
+      btnTxt.innerHTML = '<span class="spinner"></span>';
+
+      try {
+        const res = await fetch('/api/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password: pass, role: selectedRole })
+        });
+        const data = await res.json();
+
+        if (!res.ok) {
+          showError(data.error || 'Credenciales incorrectas.');
+          return;
+        }
+
+        // Guardar token y datos
+        localStorage.setItem('token', data.token);
+        localStorage.setItem('user', JSON.stringify(data.user));
+
+        // Redirigir según rol
+        const overlay = document.getElementById('loading-overlay');
+        overlay.classList.add('show');
+        if (data.user.role === 'admin') {
+          window.location.href = '/admin/';
+        } else {
+          window.location.href = '/docente/';
+        }
+      } catch(e) {
+        showError('Error de conexión. Intenta de nuevo.');
+      } finally {
+        btn.disabled = false;
+        btnTxt.textContent = 'Iniciar Sesión';
+      }
+    }
+
+    function showError(msg) {
+      const el = document.getElementById('errorMsg');
+      el.textContent = '⚠️ ' + msg;
+      el.classList.add('visible');
+    }
+
+    // Enter key
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Enter') handleLogin();
+    });
+
+    // ── PARALLAX PARTICLE CANVAS ──
+    const canvas = document.getElementById('canvas-bg');
+    const ctx = canvas.getContext('2d');
+    let W, H, particles = [];
+
+    function resize() {
+      W = canvas.width  = window.innerWidth;
+      H = canvas.height = window.innerHeight;
+    }
+
+    class Particle {
+      constructor() { this.reset(); }
+      reset() {
+        this.x = Math.random() * W;
+        this.y = Math.random() * H;
+        this.size = Math.random() * 2 + 0.5;
+        this.speedX = (Math.random() - 0.5) * 0.4;
+        this.speedY = (Math.random() - 0.5) * 0.4;
+        this.opacity = Math.random() * 0.5 + 0.1;
+        this.color = Math.random() > 0.5 ? '0,198,255' : '0,255,204';
+      }
+      update() {
+        this.x += this.speedX;
+        this.y += this.speedY;
+        if (this.x < 0 || this.x > W || this.y < 0 || this.y > H) this.reset();
+      }
+      draw() {
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(${this.color},${this.opacity})`;
+        ctx.fill();
+      }
+    }
+
+    // MOUSE PARALLAX
+    let mouse = { x: W/2, y: H/2 };
+    document.addEventListener('mousemove', e => {
+      mouse.x = e.clientX; mouse.y = e.clientY;
+    });
+
+    function initParticles() {
+      particles = Array.from({ length: 120 }, () => new Particle());
+    }
+
+    function drawConnections() {
+      for (let i = 0; i < particles.length; i++) {
+        for (let j = i + 1; j < particles.length; j++) {
+          const dx = particles[i].x - particles[j].x;
+          const dy = particles[i].y - particles[j].y;
+          const dist = Math.sqrt(dx*dx + dy*dy);
+          if (dist < 100) {
+            ctx.beginPath();
+            ctx.moveTo(particles[i].x, particles[i].y);
+            ctx.lineTo(particles[j].x, particles[j].y);
+            ctx.strokeStyle = `rgba(0,198,255,${0.08 * (1 - dist/100)})`;
+            ctx.lineWidth = 0.5;
+            ctx.stroke();
+          }
+        }
+      }
+    }
+
+    // PARALLAX GEOMETRIC SHAPES
+    let shapes = [
+      { x:0.2, y:0.15, size:60, rotation:0, speed:0.3, depth:0.02, color:'rgba(0,198,255,0.06)', sides:6 },
+      { x:0.8, y:0.7,  size:80, rotation:30, speed:-0.2, depth:0.04, color:'rgba(0,255,204,0.05)', sides:3 },
+      { x:0.5, y:0.9,  size:40, rotation:45, speed:0.5, depth:0.06, color:'rgba(255,209,102,0.05)', sides:4 },
+      { x:0.1, y:0.6,  size:50, rotation:0, speed:-0.4, depth:0.03, color:'rgba(0,198,255,0.04)', sides:5 },
+      { x:0.9, y:0.2,  size:35, rotation:20, speed:0.6, depth:0.05, color:'rgba(0,255,204,0.06)', sides:3 },
+    ];
+
+    function drawPolygon(x, y, size, sides, rotation) {
+      ctx.beginPath();
+      for (let i = 0; i < sides; i++) {
+        const angle = (i / sides) * Math.PI * 2 + rotation;
+        const px = x + size * Math.cos(angle);
+        const py = y + size * Math.sin(angle);
+        i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+      }
+      ctx.closePath();
+    }
+
+    function animate() {
+      ctx.clearRect(0, 0, W, H);
+
+      // Parallax shapes
+      const offsetX = (mouse.x - W/2);
+      const offsetY = (mouse.y - H/2);
+
+      shapes.forEach(s => {
+        s.rotation += s.speed * 0.005;
+        const px = (s.x * W) + offsetX * s.depth;
+        const py = (s.y * H) + offsetY * s.depth;
+        ctx.strokeStyle = s.color;
+        ctx.lineWidth = 1.5;
+        drawPolygon(px, py, s.size, s.sides, s.rotation);
+        ctx.stroke();
+      });
+
+      // Particles
+      particles.forEach(p => { p.update(); p.draw(); });
+      drawConnections();
+      requestAnimationFrame(animate);
+    }
+
+    window.addEventListener('resize', () => { resize(); initParticles(); });
+    resize(); initParticles(); animate();
+
+    // Check if already logged in
+    const token = localStorage.getItem('token');
+    const user  = localStorage.getItem('user');
+    if (token && user) {
+      const u = JSON.parse(user);
+      document.getElementById('loading-overlay').classList.add('show');
+      if (u.role === 'admin') window.location.href = '/admin/';
+      else window.location.href = '/docente/';
+    }
+  </script>
+</body>
+</html>
