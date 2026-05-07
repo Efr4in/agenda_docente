@@ -726,7 +726,27 @@
         }
 
         closeRegistroModal();
-        showToast('success', `✅ Registro guardado${data.whatsapp_enviado ? ' y WhatsApp enviado 📱' : ''}`);
+
+        // Si hay URL de WhatsApp, mostrar boton directo (window.open bloqueado por navegadores)
+        if (data.whatsapp_url) {
+          const container = document.getElementById('toastContainer');
+          const t = document.createElement('div');
+          t.className = 'toast toast-success';
+          t.style.cssText = 'flex-direction:column;gap:0.5rem;align-items:flex-start;cursor:default';
+          t.innerHTML = `
+            <div>✅ Registro guardado correctamente</div>
+            <a href="${data.whatsapp_url}" target="_blank"
+               style="background:#25D366;color:#fff;padding:0.4rem 1rem;border-radius:6px;
+                      text-decoration:none;font-weight:600;font-size:0.82rem;display:inline-block">
+              📱 Abrir WhatsApp y enviar reporte
+            </a>`;
+          container.appendChild(t);
+          setTimeout(() => { t.style.opacity='0'; t.style.transform='translateX(30px)'; }, 9000);
+          setTimeout(() => t.remove(), 9300);
+        } else {
+          showToast('success', '✅ Registro guardado correctamente');
+        }
+
         await loadStats();
         await loadRecentRecords();
         await loadCalendarRecords();
