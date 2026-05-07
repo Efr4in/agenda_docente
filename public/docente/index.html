@@ -694,22 +694,48 @@
       const observations = {};
       checkboxes.forEach(cb => { observations[cb.value] = cb.checked; });
 
+      const tieneMarcas = Object.values(observations).some(v => v) ||
+                          document.getElementById('obsAdicional').value.trim();
+      if (!tieneMarcas) {
+        err.textContent = '⚠️ Selecciona al menos una observación o escribe una nota.';
+        err.style.display = 'block'; return;
+      }
+
+      const sendWA      = document.getElementById('sendWA').checked;
+      const horaActual  = new Date().toTimeString().slice(0,8);
+      const obsAdicional = document.getElementById('obsAdicional').value;
+
+      // Abrir WhatsApp ANTES del fetch — acción directa del usuario, navegador lo permite
+      if (sendWA && currentStudent.telefono_encargado) {
+        const msg = buildMensajeFrontend({
+          nombre_estudiante: `${currentStudent.nombre} ${currentStudent.apellido}`,
+          grado_paralelo:    `${currentStudent.grado}° "${currentStudent.paralelo}"`,
+          fecha:             selectedDate,
+          hora:              horaActual.slice(0,5),
+          docente:           `${user.nombre} ${user.apellido}`,
+          materia:           user.materia,
+          ...observations,
+          observacion_adicional: obsAdicional
+        });
+        const cleanPhone = currentStudent.telefono_encargado.replace(/[^\d]/g, '');
+        window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`, '_blank');
+      }
+
       const payload = {
-        fecha:               selectedDate,
-        hora:                new Date().toTimeString().slice(0,8),
-        estudiante_id:       currentStudent.id,
-        nombre_estudiante:   `${currentStudent.nombre} ${currentStudent.apellido}`,
-        grado_paralelo:      `${currentStudent.grado}° "${currentStudent.paralelo}"`,
-        telefono_encargado:  currentStudent.telefono_encargado,
-        callmebot_apikey:    currentStudent.callmebot_apikey,
+        fecha:              selectedDate,
+        hora:               horaActual,
+        estudiante_id:      currentStudent.id,
+        nombre_estudiante:  `${currentStudent.nombre} ${currentStudent.apellido}`,
+        grado_paralelo:     `${currentStudent.grado}° "${currentStudent.paralelo}"`,
+        telefono_encargado: currentStudent.telefono_encargado,
         ...observations,
-        observacion_adicional: document.getElementById('obsAdicional').value,
-        enviar_whatsapp:     document.getElementById('sendWA').checked
+        observacion_adicional: obsAdicional,
+        enviar_whatsapp: false
       };
 
       const btn = document.getElementById('enviarBtn');
       btn.disabled = true;
-      btn.innerHTML = '<span class="spinner"></span> Enviando…';
+      btn.innerHTML = '<span class="spinner"></span> Guardando…';
 
       try {
         const res = await fetch('/api/registro', {
@@ -726,27 +752,7 @@
         }
 
         closeRegistroModal();
-
-        // Si hay URL de WhatsApp, mostrar boton directo (window.open bloqueado por navegadores)
-        if (data.whatsapp_url) {
-          const container = document.getElementById('toastContainer');
-          const t = document.createElement('div');
-          t.className = 'toast toast-success';
-          t.style.cssText = 'flex-direction:column;gap:0.5rem;align-items:flex-start;cursor:default';
-          t.innerHTML = `
-            <div>✅ Registro guardado correctamente</div>
-            <a href="${data.whatsapp_url}" target="_blank"
-               style="background:#25D366;color:#fff;padding:0.4rem 1rem;border-radius:6px;
-                      text-decoration:none;font-weight:600;font-size:0.82rem;display:inline-block">
-              📱 Abrir WhatsApp y enviar reporte
-            </a>`;
-          container.appendChild(t);
-          setTimeout(() => { t.style.opacity='0'; t.style.transform='translateX(30px)'; }, 9000);
-          setTimeout(() => t.remove(), 9300);
-        } else {
-          showToast('success', '✅ Registro guardado correctamente');
-        }
-
+        showToast('success', sendWA ? '✅ Registro guardado y WhatsApp abierto 📱' : '✅ Registro guardado');
         await loadStats();
         await loadRecentRecords();
         await loadCalendarRecords();
@@ -759,6 +765,51 @@
         btn.disabled = false;
         btn.innerHTML = '📤 Guardar y Enviar';
       }
+    }
+
+    function buildMensajeFrontend(d) {
+      const fecha = new Date(d.fecha + 'T12:00:00').toLocaleDateString('es-BO', {
+        weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
+      });
+      const obs = [];
+      if (d.falto_clases)     obs.push('❌ Falto a clases');
+      if (d.llego_tarde)      obs.push('⏰ Llego tarde');
+      if (d.no_hizo_tarea)    obs.push('📚 No hizo la tarea');
+      if (d.indisciplina)     obs.push('⚠️ Indisciplina');
+      if (d.bajo_rendimiento) obs.push('📉 Bajo rendimiento');
+      if (d.perdio_material)  obs.push('🎒 Perdio material');
+      let msg = `📋 *REPORTE ESCOLAR*
+_U.E.P. Boliviano Holandes_
+`;
+      msg += `━━━━━━━━━━━━━━━━━━━━
+`;
+      msg += `👤 *Estudiante:* ${d.nombre_estudiante}
+`;
+      msg += `🎓 *Grado:* ${d.grado_paralelo}
+`;
+      msg += `📅 *Fecha:* ${fecha}
+`;
+      msg += `⏰ *Hora:* ${d.hora}
+`;
+      msg += `👩‍🏫 *Docente:* ${d.docente}
+`;
+      msg += `📚 *Materia:* ${d.materia}
+`;
+      msg += `━━━━━━━━━━━━━━━━━━━━
+`;
+      msg += `📌 *OBSERVACIONES:*
+`;
+      obs.forEach(o => { msg += `  ${o}
+`; });
+      if (d.observacion_adicional?.trim()) {
+        msg += `
+📝 *Nota:* _${d.observacion_adicional.trim()}_
+`;
+      }
+      msg += `━━━━━━━━━━━━━━━━━━━━
+`;
+      msg += `_Enviado desde el Sistema de Agenda Escolar Digital._`;
+      return msg;
     }
 
     // ── NOTIFICATIONS ──
